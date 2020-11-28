@@ -1,0 +1,183 @@
+plugins {
+    id 'com.android.application'
+    id 'kotlin-android'
+    id 'kotlin-android-extensions'
+    id 'kotlin-kapt'
+    id 'com.google.firebase.crashlytics'
+    id 'koin'
+}
+
+android {
+    compileSdkVersion rootProject.compileSdkVersion
+
+    defaultConfig {
+        applicationId "com.mobiledevpro.apptemplate.new"
+        minSdkVersion rootProject.minSdkVersion
+        targetSdkVersion rootProject.targetSdkVersion
+        vectorDrawables.useSupportLibrary = true
+        multiDexEnabled true
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    dexOptions {
+        maxProcessCount 2
+        javaMaxHeapSize "2g"
+    }
+
+    signingConfigs {
+        //uses for CI
+        config {
+            keyAlias 'here alias value'
+            keyPassword System.getenv("SOME_APP_KEYPWD")
+            storeFile file('here key file name')
+            storePassword System.getenv("SOME_APP_KSTOREPWD")
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    kotlinOptions {
+        jvmTarget = JavaVersion.VERSION_1_8.toString()
+    }
+
+    buildTypes {
+        debug {
+            debuggable true
+            firebaseCrashlytics {
+                // False -  don't need crash reporting for debug build.
+                mappingFileUploadEnabled false
+            }
+        }
+        release {
+            debuggable false
+            minifyEnabled true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.config
+        }
+    }
+
+    flavorDimensions "default"
+    productFlavors {
+        production {
+            dimension "default"
+            applicationId defaultConfig.applicationId
+            versionCode rootProject.appVersionCode
+            versionName rootProject.appVersionName
+
+            //it allows to use the same flavor in android modules/libraries
+            matchingFallbacks = ["production"]
+        }
+
+        dev {
+            dimension "default"
+            applicationId defaultConfig.applicationId + ".dev"
+            versionCode 1
+            versionName "1.0.0-dev"
+
+            //it allows to use the same flavor in android modules/libraries
+            matchingFallbacks = ["dev"]
+
+            //use this flavor by default
+            getIsDefault().set(true)
+        }
+    }
+
+    sourceSets {
+        main {
+            res.srcDirs = [
+                    'src/main/res/layouts/activity',
+                    'src/main/res/layouts/fragment',
+                    'src/main/res/layouts/adapter',
+                    'src/main/res/layouts/include',
+                    'src/main/res/layouts/preference',
+                    'src/main/res' //it should be the last item here (it affects on output directory in Assets Studio)
+            ]
+            java.srcDirs = ['src/main/kotlin']
+        }
+    }
+
+    //set custom name to apk file
+    applicationVariants.all { variant ->
+        variant.outputs.all { output ->
+            def outputFile = output.outputFile
+            if (outputFile != null && outputFile.name.endsWith('.apk')) {
+                outputFileName = variant.productFlavors[0].applicationId + "-" +
+                        "v" + variant.productFlavors[0].versionName + "_" +
+                        "build" + variant.productFlavors[0].versionCode + "-" +
+                        variant.buildType.name +
+                        ".apk"
+            }
+        }
+    }
+
+    buildFeatures.dataBinding = true
+
+    kapt.correctErrorTypes = true
+
+    testOptions {
+        unitTests.includeAndroidResources = true
+    }
+}
+
+dependencies {
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+
+    implementation deps.kotlin
+    implementation deps.appcompat
+    implementation deps.material
+    implementation deps.preference
+    implementation deps.constraintLayout
+
+    implementation deps.multidex
+    implementation deps.coreKtx
+
+    //common UI lib
+    productionImplementation deps.commonUI //<-- use published library
+    devImplementation project(":common-ui") //<-- use local module
+
+    //DI
+    implementation deps.koinScope
+    implementation deps.koinViewModel
+
+    //Navigation
+    implementation deps.navigationFragment
+    implementation deps.navigationUi
+
+    //Livedata
+    implementation deps.lifecycle
+    kapt deps.lifecycleCompiler
+
+    //Firebase
+    implementation deps.firebaseCore
+    implementation deps.firebasePerformance
+    implementation deps.firebaseAnalytics
+    implementation deps.crashlytics
+
+    //memory leak detection in debug
+    debugImplementation deps.leakcanaryDebug
+
+    //Rx
+    implementation deps.rxAndroid
+    implementation deps.rxKotlin
+
+    //Glide
+    implementation deps.glide
+    kapt deps.glideCompiler
+
+    implementation project(":domain")
+    implementation project(":data")
+    implementation project(":data-local")
+
+
+    testImplementation 'junit:junit:4.13'
+    androidTestImplementation deps.jUnitExt
+    androidTestImplementation deps.testRunner
+    androidTestImplementation deps.espressoCore
+    testImplementation 'org.mockito:mockito-core:2.23.0'
+    testImplementation deps.koinTest
+}
+apply plugin: 'com.google.gms.google-services'
